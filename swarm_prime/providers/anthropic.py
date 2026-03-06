@@ -8,11 +8,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import anthropic
 
 from swarm_prime.providers import LLMProvider
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +39,13 @@ class AnthropicProvider(LLMProvider):
         self._client = anthropic.AsyncAnthropic(api_key=api_key)
         self._model = model
 
-    async def _retry_with_backoff(self, coro_factory, retries: int = _MAX_RETRIES):
+    async def _retry_with_backoff(
+        self,
+        coro_factory: Callable[[], Coroutine[Any, Any, Any]],
+        retries: int = _MAX_RETRIES,
+    ) -> Any:
         """Exponential backoff with full jitter on retryable errors."""
-        last_exc = None
+        last_exc: Exception | None = None
         for attempt in range(retries):
             try:
                 return await coro_factory()
@@ -46,11 +53,14 @@ class AnthropicProvider(LLMProvider):
                 raise
             except _RETRYABLE as e:
                 last_exc = e
-                delay = min(_BASE_DELAY * (2 ** attempt), _MAX_DELAY)
+                delay = min(_BASE_DELAY * (2**attempt), _MAX_DELAY)
                 jitter = random.uniform(0, delay)  # noqa: S311
                 logger.warning(
                     "Anthropic API error (attempt %d/%d): %s — retrying in %.1fs",
-                    attempt + 1, retries, type(e).__name__, jitter,
+                    attempt + 1,
+                    retries,
+                    type(e).__name__,
+                    jitter,
                 )
                 await asyncio.sleep(jitter)
         raise RuntimeError(f"Exhausted {retries} retries on Anthropic API") from last_exc
@@ -63,17 +73,21 @@ class AnthropicProvider(LLMProvider):
         max_tokens: int = 4096,
         response_format: dict[str, Any] | None = None,
     ) -> str:
-        async def _call():
+        async def _call() -> str:
             resp = await self._client.messages.create(
                 model=self._model,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 system=system_prompt,
-                messages=messages,
+                messages=messages,  # type: ignore[arg-type]
             )
-            return resp.content[0].text
+            block = resp.content[0]
+            if hasattr(block, "text"):
+                return block.text
+            raise ValueError(f"Expected TextBlock, got {type(block).__name__}")
 
-        return await self._retry_with_backoff(_call)
+        result: str = await self._retry_with_backoff(_call)
+        return result
 
     async def complete_structured(
         self,
@@ -89,7 +103,7 @@ class AnthropicProvider(LLMProvider):
         Pydantic model, guaranteeing valid JSON without prompt hacking.
         Validates the tool input against the schema before returning.
         """
-        schema = output_schema.model_json_schema()
+        schema = output_schema.model_json_schema()  # type: ignore[attr-defined]
         schema.pop("title", None)
 
         tool_def: dict[str, Any] = {
@@ -98,8 +112,8 @@ class AnthropicProvider(LLMProvider):
             "input_schema": schema,
         }
 
-        async def _call():
-            resp = await self._client.messages.create(
+        async def _call() -> dict[str, Any]:
+            resp = await self._client.messages.create(  # type: ignore[call-overload]
                 model=self._model,
                 max_tokens=max_tokens,
                 temperature=temperature,
@@ -110,8 +124,9 @@ class AnthropicProvider(LLMProvider):
             )
             for block in resp.content:
                 if block.type == "tool_use":
-                    validated = output_schema.model_validate(block.input)
-                    return validated.model_dump()
+                    validated = output_schema.model_validate(block.input)  # type: ignore[attr-defined]
+                    return validated.model_dump()  # type: ignore[no-any-return]
             raise ValueError(f"No tool_use block in response for {output_schema.__name__}")
 
-        return await self._retry_with_backoff(_call)
+        result: dict[str, Any] = await self._retry_with_backoff(_call)
+        return result

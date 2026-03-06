@@ -7,16 +7,16 @@ Pydantic v2 strict mode throughout.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ── Enums ────────────────────────────────────────────────────────────────────
 
-class AgentRole(str, Enum):
+
+class AgentRole(StrEnum):
     ARCHITECT = "architect"
     SKEPTIC = "skeptic"
     EXPERIMENT_DESIGNER = "experiment_designer"
@@ -25,7 +25,7 @@ class AgentRole(str, Enum):
     ALIGNMENT_GUARDIAN = "alignment_guardian"
 
 
-class ProposalStatus(str, Enum):
+class ProposalStatus(StrEnum):
     DRAFT = "draft"
     UNDER_REVIEW = "under_review"
     REVISION_REQUESTED = "revision_requested"
@@ -33,26 +33,26 @@ class ProposalStatus(str, Enum):
     REJECTED = "rejected"
 
 
-class CycleDecision(str, Enum):
+class CycleDecision(StrEnum):
     ADOPT = "adopt"
     MODIFY = "modify"
     DISCARD = "discard"
 
 
-class ReviewVerdict(str, Enum):
+class ReviewVerdict(StrEnum):
     APPROVE = "approve"
     REQUEST_REVISION = "request_revision"
     REJECT = "reject"
 
 
-class ConstraintViolationType(str, Enum):
+class ConstraintViolationType(StrEnum):
     CONCEALED_REASONING = "concealed_reasoning"
     METRIC_MANIPULATION = "metric_manipulation"
     OVERSIGHT_BYPASS = "oversight_bypass"
     UNSANDBOXED_REPLICATION = "unsandboxed_replication"
 
 
-class ReflectionInterval(str, Enum):
+class ReflectionInterval(StrEnum):
     POST_ITERATION = "post_iteration"
     WEEKLY = "weekly"
     MONTHLY = "monthly"
@@ -61,6 +61,7 @@ class ReflectionInterval(str, Enum):
 
 
 # ── Intelligence Traits (Section 1) ─────────────────────────────────────────
+
 
 class FailureMode(BaseModel):
     description: str
@@ -75,7 +76,7 @@ class BenchmarkResult(BaseModel):
     baseline_score: float | None = None
     delta: float | None = None
     statistical_significance: float | None = None  # p-value
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class IntelligenceTrait(BaseModel):
@@ -88,18 +89,21 @@ class IntelligenceTrait(BaseModel):
 
 # ── Agent Communication ─────────────────────────────────────────────────────
 
+
 class AgentMessage(BaseModel):
     """Atomic unit of inter-agent communication."""
+
     id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
     sender: AgentRole
     content: str
     structured_data: dict[str, Any] | None = None
     trace_id: str = ""
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class Proposal(BaseModel):
     """Capability upgrade proposal from the Architect agent."""
+
     id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
     title: str
     specification: str
@@ -112,12 +116,12 @@ class Proposal(BaseModel):
     reviews: list[PeerReview] = Field(default_factory=list)
     revision_history: list[str] = Field(default_factory=list)
     trace_id: str = Field(default_factory=lambda: uuid.uuid4().hex[:16])
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @field_validator("reviews")
     @classmethod
-    def max_review_rounds(cls, v: list) -> list:
+    def max_review_rounds(cls, v: list[PeerReview]) -> list[PeerReview]:
         if len(v) > 10:
             raise ValueError("Exceeded maximum review rounds (10) — likely review loop")
         return v
@@ -134,19 +138,22 @@ class Proposal(BaseModel):
 
 class PeerReview(BaseModel):
     """Review of a proposal by a peer agent."""
+
     id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
     reviewer: AgentRole
     verdict: ReviewVerdict
     reasoning: str
     concerns: list[str] = Field(default_factory=list)
     suggestions: list[str] = Field(default_factory=list)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 # ── Simulation & Testing ────────────────────────────────────────────────────
 
+
 class SimulationResult(BaseModel):
     """Consequence simulation output."""
+
     proposal_id: str
     computational_model_output: str
     historical_analogies: list[str] = Field(default_factory=list)
@@ -158,6 +165,7 @@ class SimulationResult(BaseModel):
 
 class StressTestResult(BaseModel):
     """Cross-domain stress test output."""
+
     proposal_id: str
     regression_results: list[BenchmarkResult] = Field(default_factory=list)
     transfer_capability_intact: bool = True
@@ -168,6 +176,7 @@ class StressTestResult(BaseModel):
 
 class PerformanceDelta(BaseModel):
     """Measured performance change from a proposed upgrade."""
+
     proposal_id: str
     baseline_scores: dict[str, float] = Field(default_factory=dict)
     post_modification_scores: dict[str, float] = Field(default_factory=dict)
@@ -179,8 +188,10 @@ class PerformanceDelta(BaseModel):
 
 # ── Memory Graph ─────────────────────────────────────────────────────────────
 
+
 class MemoryEntry(BaseModel):
     """Single entry in the shared memory graph."""
+
     id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
     content: str
     abstract_principle: str | None = None
@@ -188,11 +199,12 @@ class MemoryEntry(BaseModel):
     source_proposal_id: str | None = None
     tags: list[str] = Field(default_factory=list)
     connections: list[str] = Field(default_factory=list)  # IDs of related entries
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class MemoryGraph(BaseModel):
     """Append-only shared memory with compression."""
+
     entries: list[MemoryEntry] = Field(default_factory=list)
     compressed_principles: list[str] = Field(default_factory=list)
     failure_patterns: list[str] = Field(default_factory=list)
@@ -213,21 +225,25 @@ class MemoryGraph(BaseModel):
 
 # ── Constraint Violations ────────────────────────────────────────────────────
 
+
 class ConstraintViolation(BaseModel):
     """Record of a constraint layer violation."""
+
     id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
     violation_type: ConstraintViolationType
     agent: AgentRole
     description: str
     severity: str = "critical"
     action_taken: str = "blocked"
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 # ── Deliverables (Section 6) ────────────────────────────────────────────────
 
+
 class CapabilityDeltaReport(BaseModel):
     """Deliverable 6.1 — owned by Evaluator."""
+
     cycle_number: int
     performance_changes: list[BenchmarkResult] = Field(default_factory=list)
     cross_domain_impact: str = ""
@@ -238,6 +254,7 @@ class CapabilityDeltaReport(BaseModel):
 
 class AlignmentRiskReport(BaseModel):
     """Deliverable 6.2 — owned by Alignment Guardian."""
+
     cycle_number: int
     power_seeking_indicators: list[str] = Field(default_factory=list)
     deception_attempts: list[str] = Field(default_factory=list)
@@ -250,6 +267,7 @@ class AlignmentRiskReport(BaseModel):
 
 class FailureAnalysis(BaseModel):
     """Deliverable 6.3 — owned by Skeptic."""
+
     cycle_number: int
     failures: list[FailureMode] = Field(default_factory=list)
     root_causes: list[str] = Field(default_factory=list)
@@ -260,6 +278,7 @@ class FailureAnalysis(BaseModel):
 
 class ArchitecturalMutation(BaseModel):
     """Single mutation proposal for future iterations."""
+
     title: str
     justification: str
     resource_estimate: str
@@ -270,6 +289,7 @@ class ArchitecturalMutation(BaseModel):
 
 class ArchitecturalMutationProposals(BaseModel):
     """Deliverable 6.4 — owned by Architect."""
+
     cycle_number: int
     mutations: list[ArchitecturalMutation] = Field(default_factory=list)
     summary: str = ""
@@ -277,6 +297,7 @@ class ArchitecturalMutationProposals(BaseModel):
 
 class ExperimentalValidationPlan(BaseModel):
     """Deliverable 6.5 — owned by Experiment Designer."""
+
     cycle_number: int
     experiments: list[dict[str, Any]] = Field(default_factory=list)
     success_criteria: list[str] = Field(default_factory=list)
@@ -288,6 +309,7 @@ class ExperimentalValidationPlan(BaseModel):
 
 class CycleDeliverables(BaseModel):
     """All five mandatory deliverables for a single iteration cycle."""
+
     cycle_number: int
     capability_delta: CapabilityDeltaReport
     alignment_risk: AlignmentRiskReport
@@ -295,13 +317,15 @@ class CycleDeliverables(BaseModel):
     architectural_mutations: ArchitecturalMutationProposals
     validation_plan: ExperimentalValidationPlan
     decision: CycleDecision
-    completed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    completed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 # ── Meta-Cognition ──────────────────────────────────────────────────────────
 
+
 class ReflectionResult(BaseModel):
     """Output of a meta-cognitive self-reflection session."""
+
     interval: ReflectionInterval
     cycle_number: int
     assumptions_examined: list[str] = Field(default_factory=list)
@@ -309,13 +333,15 @@ class ReflectionResult(BaseModel):
     missing_capabilities: list[str] = Field(default_factory=list)
     benchmark_gaming_risks: list[str] = Field(default_factory=list)
     action_items: list[str] = Field(default_factory=list)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 # ── Cycle State ──────────────────────────────────────────────────────────────
 
+
 class CycleState(BaseModel):
     """Complete state of a single improvement cycle."""
+
     cycle_number: int
     proposal: Proposal | None = None
     simulation: SimulationResult | None = None
@@ -325,7 +351,7 @@ class CycleState(BaseModel):
     deliverables: CycleDeliverables | None = None
     constraint_violations: list[ConstraintViolation] = Field(default_factory=list)
     agent_messages: list[AgentMessage] = Field(default_factory=list)
-    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
     trace_id: str = Field(default_factory=lambda: uuid.uuid4().hex[:16])
 

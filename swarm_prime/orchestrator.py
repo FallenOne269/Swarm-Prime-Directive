@@ -18,9 +18,9 @@ import asyncio
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from swarm_prime.agents.alignment_guardian import AlignmentGuardianAgent
 from swarm_prime.agents.architect import ArchitectAgent
@@ -48,7 +48,9 @@ from swarm_prime.models import (
     SimulationResult,
 )
 from swarm_prime.peer_review import PeerReviewProtocol
-from swarm_prime.providers import LLMProvider
+
+if TYPE_CHECKING:
+    from swarm_prime.providers import LLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -74,9 +76,7 @@ class SwarmOrchestrator:
                 llm, temps.get("experiment_designer", 0.5)
             ),
             AgentRole.EVALUATOR: EvaluatorAgent(llm, temps.get("evaluator", 0.3)),
-            AgentRole.MEMORY_CURATOR: MemoryCuratorAgent(
-                llm, temps.get("memory_curator", 0.4)
-            ),
+            AgentRole.MEMORY_CURATOR: MemoryCuratorAgent(llm, temps.get("memory_curator", 0.4)),
             AgentRole.ALIGNMENT_GUARDIAN: AlignmentGuardianAgent(
                 llm, temps.get("alignment_guardian", 0.3)
             ),
@@ -114,7 +114,8 @@ class SwarmOrchestrator:
 
         logger.info(
             "═══ CYCLE %d START [trace:%s] ═══",
-            self._current_cycle, trace_id,
+            self._current_cycle,
+            trace_id,
         )
 
         # Build context for agents
@@ -139,8 +140,12 @@ class SwarmOrchestrator:
             if proposal.status == ProposalStatus.REJECTED:
                 logger.info("Proposal rejected — skipping to deliverables")
                 state.decision = CycleDecision.DISCARD
-                state.deliverables = await self._generate_deliverables(state, cycle_context, trace_id)
-                state.completed_at = datetime.now(timezone.utc)
+                state.deliverables = await self._generate_deliverables(
+                    state,
+                    cycle_context,
+                    trace_id,
+                )
+                state.completed_at = datetime.now(UTC)
                 self._cycle_history.append(state)
                 return state
 
@@ -152,16 +157,18 @@ class SwarmOrchestrator:
             if not simulation.proceed_recommendation:
                 logger.info("Simulation recommends against proceeding")
                 state.decision = CycleDecision.DISCARD
-                state.deliverables = await self._generate_deliverables(state, cycle_context, trace_id)
-                state.completed_at = datetime.now(timezone.utc)
+                state.deliverables = await self._generate_deliverables(
+                    state,
+                    cycle_context,
+                    trace_id,
+                )
+                state.completed_at = datetime.now(UTC)
                 self._cycle_history.append(state)
                 return state
 
             # ── Step 3: Stress Test ──────────────────────────────────────
             logger.info("[Step 3] Stress testing across domains...")
-            stress_result = await self._step3_stress_test(
-                proposal, cycle_context, trace_id
-            )
+            stress_result = await self._step3_stress_test(proposal, cycle_context, trace_id)
             state.stress_test = stress_result
 
             # ── Step 4: Measure Performance Delta ────────────────────────
@@ -174,8 +181,12 @@ class SwarmOrchestrator:
             if self.constraint_layer.has_critical_violation(violations):
                 logger.critical("CRITICAL CONSTRAINT VIOLATION — halting cycle")
                 state.decision = CycleDecision.DISCARD
-                state.deliverables = await self._generate_deliverables(state, cycle_context, trace_id)
-                state.completed_at = datetime.now(timezone.utc)
+                state.deliverables = await self._generate_deliverables(
+                    state,
+                    cycle_context,
+                    trace_id,
+                )
+                state.completed_at = datetime.now(UTC)
                 self._cycle_history.append(state)
                 return state
 
@@ -205,7 +216,7 @@ class SwarmOrchestrator:
             state.decision = CycleDecision.DISCARD
             raise
         finally:
-            state.completed_at = datetime.now(timezone.utc)
+            state.completed_at = datetime.now(UTC)
             self._cycle_history.append(state)
             logger.info(
                 "═══ CYCLE %d COMPLETE [decision:%s] ═══",
@@ -227,7 +238,7 @@ class SwarmOrchestrator:
             logger.info("Starting cycle %d of %d", i + 1, n)
             state = await self.run_cycle(context=context, focus_area=focus_area)
             results.append(state)
-            # Feed previous cycle results into next cycle context (copy to avoid mutating caller's dict)
+            # Feed previous cycle results into next context
             context = {**(context or {}), "previous_cycle": state}
         return results
 
@@ -256,17 +267,13 @@ class SwarmOrchestrator:
 
     # ── Step Implementations ─────────────────────────────────────────────────
 
-    async def _step1_propose(
-        self, context: dict[str, Any], trace_id: str
-    ) -> Proposal:
+    async def _step1_propose(self, context: dict[str, Any], trace_id: str) -> Proposal:
         """Step 1: Architect proposes a capability upgrade."""
         architect = self.agents[AgentRole.ARCHITECT]
         msg = await architect.execute(context, trace_id)
 
         if not msg.structured_data:
-            raise RuntimeError(
-                f"Architect returned no structured proposal: {msg.content[:200]}"
-            )
+            raise RuntimeError(f"Architect returned no structured proposal: {msg.content[:200]}")
         return Proposal(**msg.structured_data)
 
     async def _step2_simulate(
@@ -279,12 +286,8 @@ class SwarmOrchestrator:
         skeptic = self.agents[AgentRole.SKEPTIC]
         guardian = self.agents[AgentRole.ALIGNMENT_GUARDIAN]
 
-        adversarial_task = skeptic.adversarial_simulation(
-            proposal.id, sim_context, trace_id
-        )
-        alignment_task = guardian.alignment_impact_assessment(
-            sim_context, proposal.id, trace_id
-        )
+        adversarial_task = skeptic.adversarial_simulation(proposal.id, sim_context, trace_id)
+        alignment_task = guardian.alignment_impact_assessment(sim_context, proposal.id, trace_id)
 
         adversarial_result, alignment_result = await asyncio.gather(
             adversarial_task, alignment_task
@@ -420,12 +423,8 @@ class SwarmOrchestrator:
         alignment_task = guardian.generate_alignment_report(
             deliverable_context, cycle_num, trace_id
         )
-        failure_task = skeptic.generate_failure_analysis(
-            deliverable_context, cycle_num, trace_id
-        )
-        mutation_task = architect.generate_mutations(
-            deliverable_context, cycle_num, trace_id
-        )
+        failure_task = skeptic.generate_failure_analysis(deliverable_context, cycle_num, trace_id)
+        mutation_task = architect.generate_mutations(deliverable_context, cycle_num, trace_id)
         validation_task = exp_designer.generate_validation_plan(
             deliverable_context, cycle_num, trace_id
         )
@@ -440,7 +439,7 @@ class SwarmOrchestrator:
         )
 
         # Handle partial failures gracefully
-        def _safe_result(result, default_factory, name):
+        def _safe_result(result: Any, default_factory: type, name: str) -> Any:
             if isinstance(result, Exception):
                 logger.error("Failed to generate %s: %s", name, result)
                 return default_factory(cycle_number=cycle_num)
@@ -454,9 +453,7 @@ class SwarmOrchestrator:
             architectural_mutations=_safe_result(
                 results[3], ArchitecturalMutationProposals, "architectural_mutations"
             ),
-            validation_plan=_safe_result(
-                results[4], ExperimentalValidationPlan, "validation_plan"
-            ),
+            validation_plan=_safe_result(results[4], ExperimentalValidationPlan, "validation_plan"),
             decision=state.decision or CycleDecision.DISCARD,
         )
 

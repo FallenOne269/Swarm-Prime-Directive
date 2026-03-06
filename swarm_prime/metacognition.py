@@ -6,7 +6,7 @@ Structured self-reflection at defined intervals.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
@@ -15,16 +15,20 @@ from swarm_prime.models import (
     ReflectionInterval,
     ReflectionResult,
 )
-from swarm_prime.providers import LLMProvider
+
+if TYPE_CHECKING:
+    from swarm_prime.providers import LLMProvider
 
 
 class _ReflectionBody(BaseModel):
     """Private schema for LLM-generated reflection content."""
+
     assumptions_examined: list[str]
     contradicting_evidence: list[str]
     missing_capabilities: list[str]
     benchmark_gaming_risks: list[str]
     action_items: list[str]
+
 
 logger = logging.getLogger(__name__)
 
@@ -34,26 +38,26 @@ _REFLECTION_QUESTIONS = [
         "assumptions",
         "What assumptions are we relying on? Examine foundational assumptions about "
         "intelligence, measurement criteria, benchmark-to-general-intelligence mapping, "
-        "and philosophical commitments."
+        "and philosophical commitments.",
     ),
     (
         "contradictions",
         "What evidence contradicts us? Identify experimental results that contradict "
         "our theories, unexplained failure modes, alternative interpretations of successes, "
-        "and what would falsify our current approach."
+        "and what would falsify our current approach.",
     ),
     (
         "missing_capabilities",
         "What capability is missing for generality? Assess what problems humans solve "
         "that we cannot, cognitive skills outside our scope, domains with persistent poor "
-        "performance, and what would constitute a genuine breakthrough."
+        "performance, and what would constitute a genuine breakthrough.",
     ),
     (
         "benchmark_gaming",
         "Are we optimizing benchmarks instead of intelligence? Check if improvements "
         "generalize beyond benchmark tasks, if performance gains correspond to capability "
         "gains, if we're ignoring capabilities not captured by benchmarks, and if our "
-        "improvements would help on genuinely novel tasks."
+        "improvements would help on genuinely novel tasks.",
     ),
 ]
 
@@ -112,7 +116,7 @@ class MetaCognitionEngine:
         # Ask reflection questions up to depth
         questions_to_ask = _REFLECTION_QUESTIONS[:question_depth]
         questions_text = "\n\n".join(
-            f"QUESTION {i+1}: {q[1]}" for i, q in enumerate(questions_to_ask)
+            f"QUESTION {i + 1}: {q[1]}" for i, q in enumerate(questions_to_ask)
         )
 
         prompt = (
@@ -146,7 +150,9 @@ class MetaCognitionEngine:
         self._reflection_history.append(result)
         logger.info(
             "[META-COGNITION] %s reflection completed for cycle %d — %d action items",
-            interval.value, cycle_number, len(result.action_items),
+            interval.value,
+            cycle_number,
+            len(result.action_items),
         )
         return result
 

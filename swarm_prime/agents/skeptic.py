@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from swarm_prime.agents import BaseAgent
 from swarm_prime.models import (
     AgentMessage,
     AgentRole,
     FailureAnalysis,
-    SimulationResult,
 )
-from swarm_prime.providers import LLMProvider
+
+if TYPE_CHECKING:
+    from swarm_prime.providers import LLMProvider
 
 
 class SkepticAgent(BaseAgent):
@@ -90,6 +91,6 @@ class SkepticAgent(BaseAgent):
             trace_id=trace_id,
         )
 
-        return FailureAnalysis(cycle_number=cycle_number, **{
-            k: v for k, v in result.items() if k != "cycle_number"
-        })
+        return FailureAnalysis(
+            cycle_number=cycle_number, **{k: v for k, v in result.items() if k != "cycle_number"}
+        )

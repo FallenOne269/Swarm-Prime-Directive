@@ -8,15 +8,17 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from swarm_prime.config import ConstraintConfig
 from swarm_prime.models import (
     AgentMessage,
     ConstraintViolation,
     ConstraintViolationType,
     CycleState,
 )
+
+if TYPE_CHECKING:
+    from swarm_prime.config import ConstraintConfig
 
 logger = logging.getLogger(__name__)
 
@@ -75,48 +77,70 @@ class ConstraintLayer:
         if self.config.enforce_reasoning_transparency:
             for pattern in self._CONCEALMENT_PATTERNS:
                 if pattern.search(content):
-                    violations.append(ConstraintViolation(
-                        violation_type=ConstraintViolationType.CONCEALED_REASONING,
-                        agent=message.sender,
-                        description=f"Potential reasoning concealment detected: pattern '{pattern.pattern}' matched",
-                    ))
+                    violations.append(
+                        ConstraintViolation(
+                            violation_type=ConstraintViolationType.CONCEALED_REASONING,
+                            agent=message.sender,
+                            description=(
+                                f"Potential reasoning concealment detected: "
+                                f"pattern '{pattern.pattern}' matched"
+                            ),
+                        )
+                    )
                     break  # One violation per type per message
 
         if self.config.enforce_metric_integrity:
             for pattern in self._METRIC_MANIPULATION_PATTERNS:
                 if pattern.search(content):
-                    violations.append(ConstraintViolation(
-                        violation_type=ConstraintViolationType.METRIC_MANIPULATION,
-                        agent=message.sender,
-                        description=f"Potential metric manipulation detected: pattern '{pattern.pattern}' matched",
-                    ))
+                    violations.append(
+                        ConstraintViolation(
+                            violation_type=ConstraintViolationType.METRIC_MANIPULATION,
+                            agent=message.sender,
+                            description=(
+                                f"Potential metric manipulation detected: "
+                                f"pattern '{pattern.pattern}' matched"
+                            ),
+                        )
+                    )
                     break
 
         if self.config.enforce_oversight_preservation:
             for pattern in self._OVERSIGHT_BYPASS_PATTERNS:
                 if pattern.search(content):
-                    violations.append(ConstraintViolation(
-                        violation_type=ConstraintViolationType.OVERSIGHT_BYPASS,
-                        agent=message.sender,
-                        description=f"Potential oversight bypass detected: pattern '{pattern.pattern}' matched",
-                    ))
+                    violations.append(
+                        ConstraintViolation(
+                            violation_type=ConstraintViolationType.OVERSIGHT_BYPASS,
+                            agent=message.sender,
+                            description=(
+                                f"Potential oversight bypass detected: "
+                                f"pattern '{pattern.pattern}' matched"
+                            ),
+                        )
+                    )
                     break
 
         if self.config.enforce_replication_sandboxing:
             for pattern in self._REPLICATION_PATTERNS:
                 if pattern.search(content):
-                    violations.append(ConstraintViolation(
-                        violation_type=ConstraintViolationType.UNSANDBOXED_REPLICATION,
-                        agent=message.sender,
-                        description=f"Potential unsandboxed replication detected: pattern '{pattern.pattern}' matched",
-                    ))
+                    violations.append(
+                        ConstraintViolation(
+                            violation_type=ConstraintViolationType.UNSANDBOXED_REPLICATION,
+                            agent=message.sender,
+                            description=(
+                                f"Potential unsandboxed replication detected: "
+                                f"pattern '{pattern.pattern}' matched"
+                            ),
+                        )
+                    )
                     break
 
         for v in violations:
             self._violation_log.append(v)
             logger.warning(
                 "[CONSTRAINT VIOLATION] %s by %s: %s",
-                v.violation_type.value, v.agent.value, v.description,
+                v.violation_type.value,
+                v.agent.value,
+                v.description,
             )
 
         return violations

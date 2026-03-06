@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from swarm_prime.agents import BaseAgent
 from swarm_prime.models import (
@@ -11,7 +11,9 @@ from swarm_prime.models import (
     ExperimentalValidationPlan,
     PerformanceDelta,
 )
-from swarm_prime.providers import LLMProvider
+
+if TYPE_CHECKING:
+    from swarm_prime.providers import LLMProvider
 
 
 class ExperimentDesignerAgent(BaseAgent):
@@ -74,9 +76,9 @@ class ExperimentDesignerAgent(BaseAgent):
             trace_id=trace_id,
         )
 
-        return PerformanceDelta(proposal_id=proposal_id, **{
-            k: v for k, v in result.items() if k != "proposal_id"
-        })
+        return PerformanceDelta(
+            proposal_id=proposal_id, **{k: v for k, v in result.items() if k != "proposal_id"}
+        )
 
     async def generate_validation_plan(
         self, context: dict[str, Any], cycle_number: int, trace_id: str = ""
@@ -100,6 +102,6 @@ class ExperimentDesignerAgent(BaseAgent):
             trace_id=trace_id,
         )
 
-        return ExperimentalValidationPlan(cycle_number=cycle_number, **{
-            k: v for k, v in result.items() if k != "cycle_number"
-        })
+        return ExperimentalValidationPlan(
+            cycle_number=cycle_number, **{k: v for k, v in result.items() if k != "cycle_number"}
+        )

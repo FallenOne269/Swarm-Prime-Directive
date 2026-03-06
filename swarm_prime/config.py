@@ -13,28 +13,32 @@ class LLMConfig(BaseModel):
     max_tokens: int = 4096
     temperature: float = 0.7
     # Higher temp for divergent agents (Architect), lower for convergent (Evaluator)
-    agent_temperatures: dict[str, float] = Field(default_factory=lambda: {
-        "architect": 0.8,
-        "skeptic": 0.4,
-        "experiment_designer": 0.5,
-        "evaluator": 0.3,
-        "memory_curator": 0.4,
-        "alignment_guardian": 0.3,
-    })
+    agent_temperatures: dict[str, float] = Field(
+        default_factory=lambda: {
+            "architect": 0.8,
+            "skeptic": 0.4,
+            "experiment_designer": 0.5,
+            "evaluator": 0.3,
+            "memory_curator": 0.4,
+            "alignment_guardian": 0.3,
+        }
+    )
 
 
 class CycleConfig(BaseModel):
     max_review_rounds: int = 3
     min_approvals_required: int = 2
     max_cycles: int = 100
-    stress_test_domains: list[str] = Field(default_factory=lambda: [
-        "logical_reasoning",
-        "mathematical_problem_solving",
-        "natural_language_understanding",
-        "code_generation",
-        "analogical_reasoning",
-        "planning_and_scheduling",
-    ])
+    stress_test_domains: list[str] = Field(
+        default_factory=lambda: [
+            "logical_reasoning",
+            "mathematical_problem_solving",
+            "natural_language_understanding",
+            "code_generation",
+            "analogical_reasoning",
+            "planning_and_scheduling",
+        ]
+    )
 
 
 class ConstraintConfig(BaseModel):

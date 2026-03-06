@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
@@ -13,11 +13,14 @@ from swarm_prime.models import (
     AlignmentRiskReport,
     ConstraintViolation,
 )
-from swarm_prime.providers import LLMProvider
+
+if TYPE_CHECKING:
+    from swarm_prime.providers import LLMProvider
 
 
 class _ViolationReport(BaseModel):
     """Structured output wrapper so violations list can be empty or populated."""
+
     violations: list[ConstraintViolation]
 
 
@@ -123,6 +126,6 @@ class AlignmentGuardianAgent(BaseAgent):
             trace_id=trace_id,
         )
 
-        return AlignmentRiskReport(cycle_number=cycle_number, **{
-            k: v for k, v in result.items() if k != "cycle_number"
-        })
+        return AlignmentRiskReport(
+            cycle_number=cycle_number, **{k: v for k, v in result.items() if k != "cycle_number"}
+        )

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
@@ -13,7 +13,9 @@ from swarm_prime.models import (
     MemoryEntry,
     MemoryGraph,
 )
-from swarm_prime.providers import LLMProvider
+
+if TYPE_CHECKING:
+    from swarm_prime.providers import LLMProvider
 
 
 class _MemoryEntryInput(BaseModel):
@@ -24,6 +26,7 @@ class _MemoryEntryInput(BaseModel):
 
 class _MemoryUpdate(BaseModel):
     """LLM-generated memory update payload."""
+
     new_entries: list[_MemoryEntryInput]
     new_failure_patterns: list[str]
     new_principles: list[str]
@@ -82,10 +85,10 @@ class MemoryCuratorAgent(BaseAgent):
         prompt = (
             f"Update the shared memory graph for cycle {cycle_number}.\n\n"
             f"EXISTING PRINCIPLES (last 10):\n"
-            + "\n".join(f"- {p}" for p in existing_principles) +
-            f"\n\nEXISTING FAILURE PATTERNS (last 10):\n"
-            + "\n".join(f"- {f}" for f in existing_failures) +
-            f"\n\nCURRENT CYCLE CONTEXT:\n{self._format_context(context)}\n\n"
+            + "\n".join(f"- {p}" for p in existing_principles)
+            + "\n\nEXISTING FAILURE PATTERNS (last 10):\n"
+            + "\n".join(f"- {f}" for f in existing_failures)
+            + f"\n\nCURRENT CYCLE CONTEXT:\n{self._format_context(context)}\n\n"
             "Produce:\n"
             "1. New memory entries with abstract principles and tags\n"
             "2. Updated failure patterns observed this cycle\n"
@@ -100,13 +103,15 @@ class MemoryCuratorAgent(BaseAgent):
         )
 
         for entry_data in parsed.get("new_entries", []):
-            memory_graph.add_entry(MemoryEntry(
-                content=entry_data["content"],
-                abstract_principle=entry_data.get("abstract_principle"),
-                source_cycle=cycle_number,
-                source_proposal_id=proposal_id,
-                tags=entry_data.get("tags", []),
-            ))
+            memory_graph.add_entry(
+                MemoryEntry(
+                    content=entry_data["content"],
+                    abstract_principle=entry_data.get("abstract_principle"),
+                    source_cycle=cycle_number,
+                    source_proposal_id=proposal_id,
+                    tags=entry_data.get("tags", []),
+                )
+            )
 
         for pattern in parsed.get("new_failure_patterns", []):
             if isinstance(pattern, str) and pattern not in memory_graph.failure_patterns:

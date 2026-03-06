@@ -59,13 +59,17 @@ class PeerReviewProtocol:
         if len(reviewer_roles) < self._min_approvals:
             logger.warning(
                 "Insufficient reviewers for %s — need %d, have %d",
-                proposal.author.value, self._min_approvals, len(reviewer_roles),
+                proposal.author.value,
+                self._min_approvals,
+                len(reviewer_roles),
             )
 
         for round_num in range(self._max_rounds):
             logger.info(
                 "Review round %d/%d for proposal '%s'",
-                round_num + 1, self._max_rounds, proposal.title,
+                round_num + 1,
+                self._max_rounds,
+                proposal.title,
             )
 
             # Run reviews concurrently
@@ -75,13 +79,13 @@ class PeerReviewProtocol:
                 if agent:
                     review_tasks.append(agent.review_proposal(proposal, context))
 
-            reviews: list[PeerReview] = await asyncio.gather(
+            review_results: list[PeerReview | BaseException] = await asyncio.gather(
                 *review_tasks, return_exceptions=True
             )
 
             # Filter out exceptions
-            valid_reviews = []
-            for r in reviews:
+            valid_reviews: list[PeerReview] = []
+            for r in review_results:
                 if isinstance(r, PeerReview):
                     valid_reviews.append(r)
                     proposal.reviews.append(r)
@@ -97,7 +101,10 @@ class PeerReviewProtocol:
 
             logger.info(
                 "Round %d results: %d approvals, %d rejections, %d revision requests",
-                round_num + 1, approvals, rejections, revision_requests,
+                round_num + 1,
+                approvals,
+                rejections,
+                revision_requests,
             )
 
             # Decision logic
@@ -133,9 +140,7 @@ class PeerReviewProtocol:
                         revised.revision_history = list(proposal.revision_history)
                         revised.reviews = list(proposal.reviews)
                         proposal = revised
-                        logger.info(
-                            "Proposal revised → '%s'", proposal.title
-                        )
+                        logger.info("Proposal revised → '%s'", proposal.title)
                     except Exception as e:
                         logger.warning("Revision failed, continuing with original: %s", e)
 
@@ -145,6 +150,7 @@ class PeerReviewProtocol:
         proposal.status = ProposalStatus.REJECTED
         logger.info(
             "Proposal '%s' REJECTED after %d review rounds",
-            proposal.title, self._max_rounds,
+            proposal.title,
+            self._max_rounds,
         )
         return proposal

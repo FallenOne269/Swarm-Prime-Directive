@@ -16,7 +16,7 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from swarm_prime.config import SwarmConfig
@@ -29,7 +29,7 @@ def setup_logging(level: str = "INFO", output_dir: str = "swarm_output") -> None
     fmt = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
     log_dir = Path(output_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / f"swarm_prime_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.log"
+    log_file = log_dir / f"swarm_prime_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.log"
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
         format=fmt,
@@ -50,35 +50,54 @@ def build_parser() -> argparse.ArgumentParser:
     # ── run command ──────────────────────────────────────────────────────
     run_parser = subparsers.add_parser("run", help="Execute improvement cycles")
     run_parser.add_argument(
-        "--cycles", "-n", type=int, default=1,
+        "--cycles",
+        "-n",
+        type=int,
+        default=1,
         help="Number of improvement cycles to run (default: 1)",
     )
     run_parser.add_argument(
-        "--focus", "-f", type=str, default=None,
+        "--focus",
+        "-f",
+        type=str,
+        default=None,
         help="Focus area for capability improvement",
     )
     run_parser.add_argument(
-        "--model", "-m", type=str, default="claude-sonnet-4-6",
+        "--model",
+        "-m",
+        type=str,
+        default="claude-sonnet-4-6",
         help="Anthropic model to use",
     )
     run_parser.add_argument(
-        "--output", "-o", type=str, default="swarm_output",
+        "--output",
+        "-o",
+        type=str,
+        default="swarm_output",
         help="Output directory for deliverables and state",
     )
     run_parser.add_argument(
-        "--log-level", type=str, default="INFO",
+        "--log-level",
+        type=str,
+        default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Logging level",
     )
     run_parser.add_argument(
-        "--context-file", type=str, default=None,
+        "--context-file",
+        type=str,
+        default=None,
         help="Path to JSON file with additional context",
     )
 
     # ── status command ───────────────────────────────────────────────────
     status_parser = subparsers.add_parser("status", help="Show current swarm state")
     status_parser.add_argument(
-        "--output", "-o", type=str, default="swarm_output",
+        "--output",
+        "-o",
+        type=str,
+        default="swarm_output",
         help="Output directory to read state from",
     )
 
@@ -121,7 +140,9 @@ async def run_cycles(args: argparse.Namespace) -> None:
     # Execute cycles
     logger.info(
         "Starting %d improvement cycle(s) | model=%s | focus=%s",
-        args.cycles, args.model, args.focus or "general",
+        args.cycles,
+        args.model,
+        args.focus or "general",
     )
 
     results = await orchestrator.run_cycles(
@@ -177,8 +198,10 @@ def show_status(args: argparse.Namespace) -> None:
         print(f"\n═══ CYCLE HISTORY ({len(history)} cycles) ═══")
         for entry in history[-5:]:  # Last 5
             cycle_data = json.loads(entry) if isinstance(entry, str) else entry
-            print(f"  Cycle {cycle_data.get('cycle_number', '?')}: "
-                  f"{cycle_data.get('decision', 'unknown')}")
+            print(
+                f"  Cycle {cycle_data.get('cycle_number', '?')}: "
+                f"{cycle_data.get('decision', 'unknown')}"
+            )
 
     # Load audit trail
     audit_path = output_dir / "audit_trail.json"
@@ -186,8 +209,10 @@ def show_status(args: argparse.Namespace) -> None:
         audit = json.loads(audit_path.read_text())
         print(f"\n═══ AUDIT TRAIL ({len(audit)} violations) ═══")
         for v in audit[-5:]:
-            print(f"  [{v.get('severity', '?')}] {v.get('violation_type', '?')}: "
-                  f"{v.get('description', '')[:80]}")
+            print(
+                f"  [{v.get('severity', '?')}] {v.get('violation_type', '?')}: "
+                f"{v.get('description', '')[:80]}"
+            )
 
 
 def main() -> None:

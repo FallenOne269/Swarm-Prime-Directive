@@ -7,16 +7,20 @@ from __future__ import annotations
 
 import abc
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from swarm_prime.models import (
     AgentMessage,
     AgentRole,
     PeerReview,
     Proposal,
-    ReviewVerdict,
 )
-from swarm_prime.providers import LLMProvider
+from swarm_prime.models import (
+    ReviewVerdict as ReviewVerdict,
+)
+
+if TYPE_CHECKING:
+    from swarm_prime.providers import LLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -80,13 +84,15 @@ class BaseAgent(abc.ABC):
             temperature=max(self.temperature - 0.1, 0.1),  # Slightly lower for reviews
         )
 
-        review = PeerReview(reviewer=self.role, **{
-            k: v for k, v in result.items() if k != "reviewer"
-        })
+        review = PeerReview(
+            reviewer=self.role, **{k: v for k, v in result.items() if k != "reviewer"}
+        )
 
         logger.info(
             "[%s] Reviewed proposal '%s' → %s",
-            self.role.value, proposal.title, review.verdict,
+            self.role.value,
+            proposal.title,
+            review.verdict,
         )
         return review
 
@@ -98,7 +104,12 @@ class BaseAgent(abc.ABC):
     ) -> str:
         """Core LLM call with trace propagation."""
         temp = temperature or self.temperature
-        logger.debug("[%s][trace:%s] Generating response (temp=%.2f)", self.role.value, trace_id, temp)
+        logger.debug(
+            "[%s][trace:%s] Generating response (temp=%.2f)",
+            self.role.value,
+            trace_id,
+            temp,
+        )
 
         result = await self.llm.complete(
             system_prompt=self._system_prompt,
@@ -106,7 +117,12 @@ class BaseAgent(abc.ABC):
             temperature=temp,
         )
 
-        logger.debug("[%s][trace:%s] Response length: %d chars", self.role.value, trace_id, len(result))
+        logger.debug(
+            "[%s][trace:%s] Response length: %d chars",
+            self.role.value,
+            trace_id,
+            len(result),
+        )
         return result
 
     async def _generate_structured(
@@ -120,7 +136,9 @@ class BaseAgent(abc.ABC):
         temp = temperature or self.temperature
         logger.debug(
             "[%s][trace:%s] Generating structured output (schema=%s)",
-            self.role.value, trace_id, output_schema.__name__,
+            self.role.value,
+            trace_id,
+            output_schema.__name__,
         )
 
         return await self.llm.complete_structured(
@@ -143,7 +161,12 @@ class BaseAgent(abc.ABC):
                 parts.append(f"## {key}\n{str(value)[:500]}")
         return "\n\n".join(parts)
 
-    def _make_message(self, content: str, trace_id: str = "", data: dict | None = None) -> AgentMessage:
+    def _make_message(
+        self,
+        content: str,
+        trace_id: str = "",
+        data: dict[str, Any] | None = None,
+    ) -> AgentMessage:
         """Create a traced agent message."""
         return AgentMessage(
             sender=self.role,
