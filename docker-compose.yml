@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  swarm-prime:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: swarm-prime
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SWARM_LOG_LEVEL=${SWARM_LOG_LEVEL:-INFO}
+    volumes:
+      # Persist output between runs
+      - swarm-output:/app/swarm_output
+    # Override CMD for interactive usage
+    command: ["run", "--cycles", "${SWARM_CYCLES:-1}", "--focus", "${SWARM_FOCUS:-general capability improvement}", "--log-level", "${SWARM_LOG_LEVEL:-INFO}"]
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+
+  # Status viewer
+  swarm-status:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: swarm-status
+    volumes:
+      - swarm-output:/app/swarm_output
+    command: ["status"]
+    profiles: ["status"]
+
+volumes:
+  swarm-output:
+    driver: local
